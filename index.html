@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="116 дней">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>116 дней — тренировочный трекер</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#111114;--muted:#6e6e73;--border:#d7d7dc;--accent:#0a84ff;--accent-bg:#eaf4ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif}main{width:min(100%,740px);margin:auto;padding:8px;padding-bottom:calc(12px + env(safe-area-inset-bottom));font-variant-numeric:tabular-nums}.top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:6px}.routines{display:flex;gap:5px}button,input,select,textarea{font:inherit}button{min-height:42px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);padding:0 12px}button.active{border-color:var(--accent);background:var(--accent-bg);font-weight:700}.timer-title,.meta,.plan,.warm,.rest-label,.small{color:var(--muted)}.timer-title{font-size:12px;text-align:right}.timer{font-size:21px;font-weight:700}.card,.panel{background:var(--card);border:1px solid var(--border);border-radius:17px;padding:10px}.head{display:grid;grid-template-columns:1fr auto;gap:8px}.meta{font-size:12px}.name{font-size:21px;line-height:1.15;font-weight:700;margin:2px 0}.plan{font-size:14px}.warm{font-size:12px;line-height:1.25;margin-top:3px}.rest-wrap{text-align:right}.rest-wrap .timer{font-size:31px}.sets{display:flex;gap:5px;overflow-x:auto;margin-top:7px}.setbtn{width:40px;min-width:40px;height:40px;padding:0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}.form{margin-top:7px}label{font-size:12px}input,select,textarea{width:100%;min-height:42px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);padding:8px 10px;font-size:16px}.done{width:100%;margin-top:7px;border-color:var(--accent);background:var(--accent-bg);font-size:18px;font-weight:700}.metric{display:grid;grid-template-columns:90px 1fr;gap:7px;align-items:center;margin-top:7px}.metric span{font-size:12px;color:var(--muted)}.note-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:5px}.rest-row{display:flex;align-items:center;gap:5px;margin-top:7px;flex-wrap:wrap}.rest-label{font-size:12px;margin-right:auto}.nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:7px}.finish{border-color:var(--accent);font-weight:700}.panel{margin-top:8px}.hidden{display:none}.summary-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}.disabled{opacity:.4}textarea{min-height:220px;resize:vertical}.tools{display:flex;justify-content:space-between;gap:6px;align-items:center;margin:4px 0 8px}.tools button{min-height:34px;font-size:13px;padding:0 10px}.history-item{border-top:1px solid var(--border);padding:9px 0}.history-item:first-child{border-top:0}.history-item button{min-height:34px}.history-meta{font-size:12px;color:var(--muted);margin-top:2px}.history-actions{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}.history-delete{border-color:#ff453a;color:#ff453a}.start-row{display:flex;justify-content:flex-end;margin:0 0 7px}.start-row button{min-height:36px;font-size:13px}.install-note{font-size:12px;color:var(--muted);margin-top:6px}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--muted:#a1a1a6;--border:#3a3a3c;--accent:#0a84ff;--accent-bg:#0b3154}}
+</style>
+
+<style>
+.modal{pointer-events:auto;position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:flex-end;justify-content:center;z-index:9999;padding:12px}
+.modal.hidden{display:none}
+.modal-card{width:min(680px,100%);max-height:90vh;overflow:auto;background:#161616;border:1px solid #333;border-radius:16px;padding:14px}
+.modal-card label{display:block;margin:10px 0;font-size:14px}
+.modal-card input,.modal-card textarea{width:100%;box-sizing:border-box;margin-top:5px}
+.plan-edit-btn{min-width:42px;min-height:42px;padding:0 10px;font-size:20px;line-height:1;position:relative;z-index:2;pointer-events:auto}
+.edited-badge{font-size:12px;opacity:.8;margin-left:6px}
+button.disabled,button:disabled{opacity:.45;pointer-events:none}
+</style>
+
+</head>
+<body>
+<main id="app">
+<div class="tools">
+  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+    <div class="small" id="version"></div>
+    <span id="appVersionLabel" class="small">v1.9</span>
+    <button id="trackerUpdateBtn" type="button">↻ Обновить</button>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button id="soundBtn" type="button" aria-pressed="true">🔊 Звук</button>
+    <button id="historyBtn" type="button">История</button>
+  </div>
+</div>
+<div class="top">
+  <div class="routines"><button data-routine="A" type="button">A</button><button data-routine="B" type="button">B</button><button data-routine="C" type="button">C</button></div>
+  <div><div class="timer-title">Время</div><div id="clock" class="timer">00:00:00</div></div>
+</div>
+<div class="start-row"><button id="startWorkout" type="button">▶ Начать тренировку</button></div>
+<section class="card">
+<div class="head">
+  <div>
+  <div id="meta" class="meta"></div>
+  <div style="display:flex;align-items:flex-start;gap:8px">
+    <div id="name" class="name" style="flex:1"></div>
+    <button id="editPlanBtn" class="plan-edit-btn" type="button" title="Редактировать план">✎</button>
+  </div>
+  <div id="editedBadge" class="edited-badge hidden">изменено локально</div>
+  <div id="plan" class="plan"></div>
+  <div id="warm" class="warm"></div>
+</div>
+  <div class="rest-wrap"><div class="meta">Отдых</div><div id="restClock" class="timer">02:00</div></div>
+</div>
+<div id="tabs" class="sets"></div>
+<form id="setForm" class="form">
+  <div class="grid2">
+    <label><span id="weightLabel">Вес, кг</span><input id="weight" inputmode="decimal" placeholder="—"></label>
+    <label><span id="repLabel">Повторы</span><input id="reps" inputmode="numeric" placeholder="—"></label>
+  </div>
+  <button id="done" class="done" type="submit">✓ Готово</button>
+</form>
+<div class="metric"><span>RIR последнего</span><select id="rir"><option value="">—</option><option>0</option><option>0–1</option><option>1</option><option>1–2</option><option>2</option><option>2–3</option><option>3</option><option>3–4</option><option>4+</option></select></div>
+<div class="note-row"><select id="tech"><option value="">Техника —</option><option value="хорошая">Техника: хорошая</option><option value="нормальная">Техника: нормальная</option><option value="неуверенная">Техника: неуверенная</option></select><input id="note" placeholder="Ощущения / боль"></div>
+<div class="rest-row"><div id="restLabel" class="rest-label">Отдых 2:00</div><div id="restControls" style="display:none;gap:8px;align-items:center"><button id="minus" type="button">−30</button><button id="plus" type="button">+30</button><button id="skip" type="button">Пропуск</button></div></div>
+</section>
+<div class="nav"><button id="prev" type="button">← Назад</button><button id="finish" class="finish" type="button">Завершить</button><button id="next" type="button">Далее →</button></div>
+<section id="finalPanel" class="panel hidden"><div style="font-weight:700;margin-bottom:7px">Финиш тренировки</div><div class="grid2"><label>Тяжесть /10<input id="difficulty" inputmode="numeric" placeholder="например 7"></label><label>Самое тяжёлое<input id="hardest" placeholder="упражнение"></label></div><label style="display:block;margin-top:6px">Общий дискомфорт / боль<input id="pain" placeholder="нет / где и что"></label><button id="makeSummary" class="done" type="button">Сформировать сводку</button></section>
+<section id="summaryPanel" class="panel hidden"><div class="summary-head"><div style="font-weight:700">Сводка для ChatGPT</div><button id="selectText" type="button">Выделить</button></div><textarea id="summary" readonly></textarea></section>
+<section id="historyPanel" class="panel hidden"><div class="summary-head"><div style="font-weight:700">История тренировок</div><div style="display:flex;gap:6px"><button id="exportHistoryBtn" type="button">Экспорт</button><button id="closeHistory" type="button">Закрыть</button></div></div><div id="historyList"></div></section>
+<div id="status" style="font-size:13px;color:var(--muted);margin-top:6px" aria-live="polite"></div>
+<div class="install-note">Данные сохраняются только на этом устройстве. Для резервной копии сохраняй итоговые сводки.</div>
+<div id="planEditorModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="summary-head">
+      <div style="font-weight:700">Редактировать упражнение</div>
+      <button id="closePlanEditor" type="button">Закрыть</button>
+    </div>
+    <div id="planEditorName" style="font-weight:700;margin-bottom:10px"></div>
+    <label>План / описание
+      <textarea id="editPlanText" rows="3"></textarea>
+    </label>
+    <label>Вес / деления
+      <input id="editWeight" inputmode="decimal">
+    </label>
+    <label>Количество подходов
+      <input id="editSetsCount" inputmode="numeric" type="number" min="1" max="12">
+    </label>
+    <label>Повторы / секунды по подходам
+      <input id="editTargets" placeholder="например 5,5,5,5">
+    </label>
+    <label>Подсказка / примечание
+      <textarea id="editWarmText" rows="4"></textarea>
+    </label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button id="savePlanEdit" type="button">Сохранить</button>
+      <button id="resetPlanEdit" type="button">Вернуть по плану</button>
+    </div>
+    <details id="planDataDetails" style="margin-top:16px;border-top:1px solid #333;padding-top:12px">
+      <summary style="cursor:pointer;font-weight:600">Данные и перенос</summary>
+      <div style="margin-top:10px">
+        <div class="small" style="margin-bottom:8px">Экспорт и импорт только локальных изменений плана. Каноническая программа в program.js и история тренировок не изменяются.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="exportPlanOverrides" type="button">Экспорт JSON</button>
+          <button id="importPlanOverrides" type="button">Импорт JSON</button>
+          <button id="resetAllPlanOverrides" type="button">Сбросить локальные изменения</button>
+        </div>
+        <input id="importPlanFile" type="file" accept="application/json,.json" class="hidden">
+      </div>
+    </details>
+  </div>
+</main>
+<script src="program.js"></script>
+<script src="app.js?v=1.9"></script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).catch(()=>{}));}</script>
+
+
+</div>
+
+</body>
+</html>
