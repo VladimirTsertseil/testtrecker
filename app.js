@@ -452,6 +452,8 @@ async function importPlanOverridesFile(file){
   status.textContent='Локальные изменения плана импортированы';
 }
 
+window.importPlanOverridesFile = importPlanOverridesFile;
+
 document.addEventListener('click',function(e){
   const edit=e.target.closest('#editPlanBtn');
   if(edit){
@@ -544,7 +546,7 @@ document.addEventListener('click',function(e){
 
 
 // --- PWA update controls v1.3 ---
-const TRACKER_APP_VERSION = '1.9';
+const TRACKER_APP_VERSION = '1.9.1';
 
 async function forceTrackerUpdate() {
   const btn = document.getElementById('trackerUpdateBtn');
@@ -568,8 +570,8 @@ async function forceTrackerUpdate() {
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!sessionStorage.getItem('tracker116-reloaded-v19')) {
-      sessionStorage.setItem('tracker116-reloaded-v19', '1');
+    if (!sessionStorage.getItem('tracker116-reloaded-v191')) {
+      sessionStorage.setItem('tracker116-reloaded-v191', '1');
       window.location.reload();
     }
   });
