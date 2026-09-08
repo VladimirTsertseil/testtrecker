@@ -149,7 +149,8 @@ function cur(){const r=S[R],p=P[R][r.ex],item=r.items[r.ex];return{r,p,item,set:
 function saveFields(){const c=cur();c.set.weight=weight.value.trim().replace(',','.');c.set.reps=reps.value.trim();c.item.rir=rir.value;c.item.tech=tech.value;c.item.note=note.value.trim();persist()}
 function startClock(){if(started&&!finished)return;started=Date.now();finished=null;if(!timer)timer=setInterval(tick,250);persist()}
 function tick(){if(started)clock.textContent=fmt(((finished||Date.now())-started)/1000);if(restRun&&restEnd){const left=Math.max(0,(restEnd-Date.now())/1000);restSec=Math.ceil(left);rclock.textContent=fmtR(restSec);rlabel.textContent='Отдых '+fmtR(restSec).replace(/^00:/,'');if(left<=0){restRun=false;restEnd=null;restSec=0;rclock.textContent='00:00';rlabel.textContent='Отдых закончен';if(restControls)restControls.style.display='none';if(!signaled){signaled=true;status.textContent='Отдых закончен';playRestSound()}persist()}}}
-function startRest(){restSec=120;restEnd=Date.now()+120000;restRun=true;signaled=false;if(restControls)restControls.style.display='flex';if(!timer)timer=setInterval(tick,250);tick();persist()}
+function startRest(){restSec=120;restEnd=Date.now()+120000;
+  scheduleRestPush(Math.max(1,Math.round((restEnd-Date.now())/1000)));restRun=true;signaled=false;if(restControls)restControls.style.display='flex';if(!timer)timer=setInterval(tick,250);tick();persist()}
 function adjust(d){if(!restRun||!restEnd)return;restEnd=Math.max(Date.now(),restEnd+d*1000);tick();persist()}
 function skip(){if(!restRun)return;restRun=false;restEnd=null;restSec=0;rclock.textContent='00:00';rlabel.textContent='Отдых закончен';if(restControls)restControls.style.display='none';persist()}
 function render(){const r=S[R],p=P[R][r.ex],item=r.items[r.ex],s=item.sets[r.set];root.querySelectorAll('[data-routine]').forEach(b=>b.classList.toggle('active',b.dataset.routine===R));meta.textContent=`${r.ex+1}/${P[R].length} · подход ${r.set+1}/${p.sets}`;name.textContent=p.name;plan.textContent=p.plan;warm.textContent=p.warm||'';warm.style.display=p.warm?'block':'none';repLabel.textContent=p.label||'Повторы';weightLabel.textContent=(p.unit==='divisions')?'Деления':'Вес, кг';tabs.innerHTML='';item.sets.forEach((st,i)=>{const b=document.createElement('button');b.type='button';b.className='setbtn'+(i===r.set?' active':'');b.textContent=(st.done?'✓':'')+(i+1);b.addEventListener('click',()=>{saveFields();r.set=i;r.edit=st.done;persist();render()});tabs.appendChild(b)});weight.value=s.weight||'';reps.value=s.reps||'';rir.value=item.rir||'';tech.value=item.tech||'';note.value=item.note||'';done.textContent=r.edit?'Сохранить':'✓ Готово';$('#prev').disabled=r.ex===0;$('#next').disabled=r.ex===P[R].length-1;$('#prev').classList.toggle('disabled',r.ex===0);$('#next').classList.toggle('disabled',r.ex===P[R].length-1);tick();syncLifecycleUI();syncEditedBadge();}
@@ -545,8 +546,127 @@ document.addEventListener('click',function(e){
 })();
 
 
+
+// --- Web Push v2.0 ---
+const PUSH_PREF='tracker116-push-enabled-v1';
+let currentRestPushJobId=null;
+
+function pushConfig(){
+  return window.TRACKER_PUSH_CONFIG || {BACKEND_URL:'',VAPID_PUBLIC_KEY:''};
+}
+function base64UrlToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const rawData=atob(base64);
+  return Uint8Array.from([...rawData].map(c=>c.charCodeAt(0)));
+}
+async function getPushSubscription(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Web Push не поддерживается этим браузером.');
+  const reg=await navigator.serviceWorker.ready;
+  return await reg.pushManager.getSubscription();
+}
+async function ensurePushSubscription(){
+  const cfg=pushConfig();
+  if(!cfg.BACKEND_URL || !cfg.VAPID_PUBLIC_KEY) throw new Error('Push ещё не настроен: укажи BACKEND_URL и VAPID_PUBLIC_KEY в push-config.js.');
+  let sub=await getPushSubscription();
+  if(!sub){
+    const reg=await navigator.serviceWorker.ready;
+    sub=await reg.pushManager.subscribe({
+      userVisibleOnly:true,
+      applicationServerKey:base64UrlToUint8Array(cfg.VAPID_PUBLIC_KEY)
+    });
+  }
+  const r=await fetch(cfg.BACKEND_URL.replace(/\/$/,'')+'/api/subscribe',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({subscription:sub})
+  });
+  if(!r.ok) throw new Error('Backend не принял push-подписку.');
+  localStorage.setItem(PUSH_PREF,'1');
+  return sub;
+}
+async function disablePush(){
+  try{
+    const sub=await getPushSubscription();
+    if(sub) await sub.unsubscribe();
+  }catch(e){}
+  localStorage.removeItem(PUSH_PREF);
+  await cancelRestPush();
+  syncNotifyButton();
+}
+async function enablePushFromClick(){
+  if(!('Notification' in window)) throw new Error('Уведомления не поддерживаются.');
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted') throw new Error('Разрешение на уведомления не выдано.');
+  await ensurePushSubscription();
+  syncNotifyButton();
+}
+function syncNotifyButton(){
+  const b=document.getElementById('notifyBtn');
+  if(!b)return;
+  const enabled=localStorage.getItem(PUSH_PREF)==='1' && Notification.permission==='granted';
+  b.setAttribute('aria-pressed',enabled?'true':'false');
+  b.textContent=enabled?'🔔 Уведомления ✓':'🔔 Уведомления';
+}
+async function scheduleRestPush(seconds){
+  if(localStorage.getItem(PUSH_PREF)!=='1') return;
+  if(Notification.permission!=='granted') return;
+  const cfg=pushConfig();
+  if(!cfg.BACKEND_URL || !cfg.VAPID_PUBLIC_KEY) return;
+  try{
+    const sub=await ensurePushSubscription();
+    await cancelRestPush();
+    const sendAt=new Date(Date.now()+Math.max(1,seconds)*1000).toISOString();
+    const r=await fetch(cfg.BACKEND_URL.replace(/\/$/,'')+'/api/schedule',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        subscription:sub,
+        sendAt,
+        title:'Отдых закончен',
+        body:'Пора начинать следующий подход.',
+        tag:'tracker116-rest'
+      })
+    });
+    if(!r.ok) throw new Error('Не удалось назначить push.');
+    const data=await r.json();
+    currentRestPushJobId=data.jobId||null;
+  }catch(e){
+    console.warn('scheduleRestPush failed',e);
+  }
+}
+async function cancelRestPush(){
+  if(!currentRestPushJobId) return;
+  const cfg=pushConfig();
+  if(!cfg.BACKEND_URL){currentRestPushJobId=null;return;}
+  try{
+    await fetch(cfg.BACKEND_URL.replace(/\/$/,'')+'/api/cancel/'+encodeURIComponent(currentRestPushJobId),{method:'POST'});
+  }catch(e){}
+  currentRestPushJobId=null;
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const b=document.getElementById('notifyBtn');
+  if(b){
+    b.addEventListener('click',async()=>{
+      try{
+        const enabled=localStorage.getItem(PUSH_PREF)==='1' && Notification.permission==='granted';
+        if(enabled){
+          if(confirm('Отключить уведомления об окончании отдыха?')) await disablePush();
+        }else{
+          await enablePushFromClick();
+          status.textContent='Уведомления включены';
+        }
+      }catch(e){
+        alert(e?.message||String(e));
+      }
+    });
+  }
+  syncNotifyButton();
+});
+
 // --- PWA update controls v1.3 ---
-const TRACKER_APP_VERSION = '1.9.1';
+const TRACKER_APP_VERSION = '2.0';
 
 async function forceTrackerUpdate() {
   const btn = document.getElementById('trackerUpdateBtn');
@@ -570,8 +690,8 @@ async function forceTrackerUpdate() {
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!sessionStorage.getItem('tracker116-reloaded-v191')) {
-      sessionStorage.setItem('tracker116-reloaded-v191', '1');
+    if (!sessionStorage.getItem('tracker116-reloaded-v20')) {
+      sessionStorage.setItem('tracker116-reloaded-v20', '1');
       window.location.reload();
     }
   });

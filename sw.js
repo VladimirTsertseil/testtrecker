@@ -1,4 +1,4 @@
-const CACHE = 'tracker116-v1.9.1';
+const CACHE = 'tracker116-v2.0';
 const ASSETS = [
   './',
   './index.html',
@@ -55,4 +55,31 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+
+self.addEventListener('push', event => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch(e) {}
+  const title = data.title || 'Отдых закончен';
+  const options = {
+    body: data.body || 'Пора начинать следующий подход.',
+    tag: data.tag || 'tracker116-rest',
+    renotify: true,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    data: { url: './' }
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  event.waitUntil((async()=>{
+    const all = await clients.matchAll({type:'window', includeUncontrolled:true});
+    for (const client of all) {
+      if ('focus' in client) return client.focus();
+    }
+    if (clients.openWindow) return clients.openWindow('./');
+  })());
 });

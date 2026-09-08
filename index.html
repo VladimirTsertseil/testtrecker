@@ -34,11 +34,11 @@ button.disabled,button:disabled{opacity:.45;pointer-events:none}
 <div class="tools">
   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
     <div class="small" id="version"></div>
-    <span id="appVersionLabel" class="small">v1.9.1</span>
+    <span id="appVersionLabel" class="small">v2.0</span>
     <button id="trackerUpdateBtn" type="button">↻ Обновить</button>
   </div>
   <div style="display:flex;gap:6px">
-    <button id="soundBtn" type="button" aria-pressed="true">🔊 Звук</button>
+    <button id="soundBtn" type="button" aria-pressed="true">🔊 Звук</button><button id="notifyBtn" type="button" aria-pressed="false">🔔 Уведомления</button>
     <button id="historyBtn" type="button">История</button>
   </div>
 </div>
@@ -120,7 +120,8 @@ button.disabled,button:disabled{opacity:.45;pointer-events:none}
   </div>
 </main>
 <script src="program.js"></script>
-<script src="app.js?v=1.9.1"></script>
+<script src="push-config.js?v=2.0"></script>
+<script src="app.js?v=2.0"></script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).catch(()=>{}));}</script>
 
 
